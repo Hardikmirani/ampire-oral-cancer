@@ -10,21 +10,24 @@ from torchvision import transforms, models
 import torch.nn.functional as F
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from dotenv import load_dotenv
+
+
 # === CONFIG ===
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # Change this in production!
+app.secret_key = os.getenv('SECRET_KEY') # Change this in production!
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DATABASE = 'database/users.db'
 
-EMAIL_SENDER = 'your_email@gmail.com'
-EMAIL_PASSWORD = 'your_app_password'  # App password if Gmail 2FA
+EMAIL_SENDER = os.getenv('EMAIL_SENDER')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')  # App password if Gmail 2FA
 
 # ML Model Setup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BASE_PATH = "ORAL_CANCER_AMPIRE/dataset"
-MODEL_PATH = "oral_cancer_classifier.pth"
+MODEL_PATH = "static/model_file/oral_cancer_classifier.pth"
 CLASS_NAMES = ['Abnormal', 'Normal', 'Null']
 
 model = models.resnet18(pretrained=False)

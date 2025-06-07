@@ -3,3 +3,10 @@
 /.venv
 /.env
 /database
+/annotations
+/runs
+/Ventilation_052025
+/yolo_project/database
+/yolo_project/dataset
+/yolo_project/dataset.zip
+/a.py

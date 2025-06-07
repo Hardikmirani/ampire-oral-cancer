@@ -10,19 +10,16 @@ from torchvision import transforms, models
 import torch.nn.functional as F
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from dotenv import load_dotenv
-
-
 # === CONFIG ===
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY') # Change this in production!
+app.secret_key = os.getenv('SECRET_KEY')# Change this in production!
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DATABASE = 'database/users.db'
 
-EMAIL_SENDER = os.getenv('EMAIL_SENDER')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')  # App password if Gmail 2FA
+EMAIL_SENDER = os.getenv('EMAIL_SENDER') 
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
 # ML Model Setup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -149,7 +146,7 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/predict', methods=['POST'])
-def predict():
+def predict(): 
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
 

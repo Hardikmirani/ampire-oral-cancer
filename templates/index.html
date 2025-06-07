@@ -8,26 +8,19 @@
 </head>
 <body class="bg-[#F9FAFB] text-gray-800 font-sans">
 
+  <!-- Header -->
   <header class="bg-white shadow p-6 sticky top-0 z-50">
     <div class="flex justify-between items-center">
-      <!-- Left Section -->
       <div>
         <h1 class="text-2xl font-semibold">🩺 Oral Cancer Detection</h1>
         <p class="text-sm text-gray-500">Upload patient’s inner mouth image for AI-based prediction.</p>
       </div>
-  
-      <!-- Right Section: Logout -->
       <a href="{{ url_for('logout') }}"
          class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition text-sm font-medium shadow">
         Logout
       </a>
     </div>
   </header>
-  
-  
-  </header>
-
-
 
   <!-- Main Content -->
   <main class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
@@ -45,17 +38,15 @@
       <h2 class="text-lg font-medium mb-4">Result</h2>
 
       <div id="previewContainer" class="relative w-full max-w-md aspect-video mx-auto rounded border hidden">
-        <img id="previewImage" src="" alt="Preview" class="w-full h-full object-cover" />
-        <div id="overlay" class="absolute top-0 left-0 w-full h-full pointer-events-none bg-red-500 bg-opacity-20"></div>
+        <img id="previewImage" src="" alt="Preview" class="w-full h-full object-cover rounded" />
       </div>
 
-      <div id="confidenceSection" class="mt-6 hidden">
-        <p class="text-sm text-gray-600 mb-1">AI Confidence Score:</p>
-        <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-          <div id="confidenceBar" class="h-4 rounded-full transition-all duration-500 ease-in-out" style="width: 0%"></div>
-        </div>
-        <p id="confidenceText" class="text-sm mt-2 text-gray-600 font-medium"></p>
+      <div id="resultsList" class="mt-6 text-left hidden">
+        <h3 class="text-sm font-medium mb-2 text-gray-700">Detections:</h3>
+        <ul id="resultsUl" class="text-sm space-y-1 text-gray-600 list-disc list-inside"></ul>
       </div>
+
+      <div id="noResultMsg" class="mt-4 text-red-500 font-semibold hidden">No cancerous region detected.</div>
     </section>
 
   </main>
@@ -65,13 +56,14 @@
     &copy; 2025 Oral Cancer AI Project | Built for medical professionals
   </footer>
 
+  <!-- Script -->
   <script>
     const imageInput = document.getElementById('imageInput');
     const previewImage = document.getElementById('previewImage');
     const previewContainer = document.getElementById('previewContainer');
-    const confidenceSection = document.getElementById('confidenceSection');
-    const confidenceBar = document.getElementById('confidenceBar');
-    const confidenceText = document.getElementById('confidenceText');
+    const resultsUl = document.getElementById('resultsUl');
+    const resultsList = document.getElementById('resultsList');
+    const noResultMsg = document.getElementById('noResultMsg');
 
     function uploadAndPredict() {
       const file = imageInput.files[0];
@@ -83,38 +75,46 @@
       const formData = new FormData();
       formData.append('file', file);
 
-      // Preview image immediately
+      // Preview selected image while waiting
       const reader = new FileReader();
       reader.onload = function (e) {
         previewImage.src = e.target.result;
         previewContainer.classList.remove('hidden');
+        resultsList.classList.add('hidden');
+        noResultMsg.classList.add('hidden');
       };
       reader.readAsDataURL(file);
 
-      // Send file to Flask backend
       fetch('/predict', {
         method: 'POST',
         body: formData,
       })
-      .then(response => response.json())
+      .then(res => res.json())
       .then(data => {
-        const { label, confidence } = data;
-
-        confidenceBar.style.width = confidence + '%';
-        confidenceText.textContent = `Prediction: ${label} with ${confidence}% confidence`;
-        confidenceSection.classList.remove('hidden');
-
-        // Set color based on confidence
-        if (confidence < 70) {
-          confidenceBar.style.backgroundColor = '#EF4444'; // Red-500
-        } else if (confidence >= 70 && confidence <= 80) {
-          confidenceBar.style.backgroundColor = '#F59E0B'; // Yellow-500
-        } else {
-          confidenceBar.style.backgroundColor = '#10B981'; // Green-500
+        if (data.message) {
+          noResultMsg.classList.remove('hidden');
+          resultsList.classList.add('hidden');
+          return;
         }
+
+        // Show annotated image
+        previewImage.src = data.annotated_image;
+        previewContainer.classList.remove('hidden');
+
+        // Show prediction details
+        resultsUl.innerHTML = '';
+        data.predictions.forEach(pred => {
+          const item = document.createElement('li');
+          item.textContent = `${pred.label} – ${pred.confidence}% confidence`;
+          resultsUl.appendChild(item);
+        });
+
+        resultsList.classList.remove('hidden');
+        noResultMsg.classList.add('hidden');
       })
-      .catch(error => {
-        console.error('Error:', error);
+      .catch(err => {
+        console.error('Prediction failed:', err);
+        alert("Prediction failed. Please try again.");
       });
     }
   </script>

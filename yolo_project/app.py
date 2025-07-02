@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_from_directory
 import os
 import sqlite3
 import secrets
@@ -135,7 +135,6 @@ def logout():
 
 model = YOLO("/Users/hardikm-visiobyte/Desktop/Oral_Cancer_Ampire/yolo_project/static/model_file/best.pt")  # replace with your actual model path
 # model.names = {0: 'not cancer', 1: 'cancer'}  # explicitly set class names
-
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'image' not in request.files:
@@ -145,53 +144,66 @@ def predict():
 
     file = request.files['image']
     img_bytes = file.read()
+    
     nparr = np.frombuffer(img_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    print("Image received and decoded")
 
     results = model(img)
     detections = results[0].boxes.data.cpu().numpy()
+    print("Raw detections:", detections)
 
+    # Define class names explicitly if needed
+    class_names = {0: 'non-cancerous', 1: 'cancerous'}
+
+    # Filter only cancerous detections
     output = []
     for det in detections:
         x1, y1, x2, y2, conf, cls = det
-        output.append({
-            'class_id': int(cls),
-            'confidence': float(conf),
-            'bbox': [int(x1), int(y1), int(x2), int(y2)],
-            'label': model.names[int(cls)]
-        })
+        if int(cls) == 1:  # Only keep cancerous
+            output.append({
+                'class_id': int(cls),
+                'confidence': float(conf),
+                'bbox': [int(x1), int(y1), int(x2), int(y2)],
+                'label': class_names[int(cls)]
+            })
 
-    # Handle no detections
-    if not output:
-        return jsonify({
-            "label": "No cancer detected",
-            "confidence": 0,
-            "image_url": ""
-        })
-
-    # Get the highest confidence result
-    top = max(output, key=lambda x: x["confidence"])
-
-    # Draw all detections on the image
-    for det in detections:
-        x1, y1, x2, y2, conf, cls = det
-        label = f"{model.names[int(cls)]} {conf:.2f}"
-        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-        cv2.putText(img, label, (int(x1), int(y1) - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-    # Save result image
+    # Prepare output filename
     filename = f"pred_{uuid.uuid4().hex[:8]}.jpg"
     filepath = os.path.join("static", filename)
     os.makedirs("static", exist_ok=True)
+
+    # If no cancerous detections, save original image and return
+    if not output:
+        cv2.imwrite(filepath, img)
+        return jsonify({
+            "label": "No cancer detected",
+            "confidence": 0,
+            "image_url": f"/static/{filename}"
+        })
+
+    # Use the highest confidence cancerous detection
+    top = max(output, key=lambda x: x["confidence"])
+    x1, y1, x2, y2 = top["bbox"]
+    label = f"{top['label']} {top['confidence']:.2f}"
+
+    # Draw just this bounding box
+    cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
+    cv2.putText(img, label, (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    # Save result image
     cv2.imwrite(filepath, img)
 
     return jsonify({
-        "label": top["label"],  # will be 'cancer' or 'not cancer'
+        "label": top["label"],
         "confidence": int(top["confidence"] * 100),
         "image_url": f"/static/{filename}"
     })
 
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
